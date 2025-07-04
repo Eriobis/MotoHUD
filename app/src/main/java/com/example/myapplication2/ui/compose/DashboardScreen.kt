@@ -1,5 +1,6 @@
 package com.example.myapplication2.ui.compose
 
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
@@ -11,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import com.example.myapplication2.R
@@ -30,10 +30,9 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
-import android.preference.PreferenceManager
 import android.util.Log
 import androidx.compose.ui.Alignment
-
+import java.util.Locale
 
 @Composable
 fun DashboardScreen(
@@ -72,7 +71,9 @@ fun DashboardScreen(
         AndroidView(
             factory = { context ->
                 // Initialize OSMDroid configuration
-                Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
+                val prefs = context.getSharedPreferences("osmdroid_prefs", Context.MODE_PRIVATE)
+                Configuration.getInstance().load(context, prefs)
+
                 Configuration.getInstance().userAgentValue = context.packageName
                 
                 MapView(context).apply {
@@ -196,7 +197,7 @@ fun DashboardScreen(
             // Trip meter
             StatusCard(
                 title = "TRIP",
-                value = "${String.format("%.1f", tripData.distance)} km",
+                value = "${String.format(Locale.getDefault(), "%.1f", tripData.distance)} km" ,
                 color = Color.Cyan
             )
             
@@ -214,7 +215,7 @@ fun DashboardScreen(
             // Voltage
             StatusCard(
                 title = "VOLTS",
-                value = "${String.format("%.1f", esp32Data.voltage)}V",
+                value = "${String.format(Locale.getDefault(), "%.1f", esp32Data.voltage)}V",
                 color = when {
                     esp32Data.voltage < 11.5 -> Color.Red
                     esp32Data.voltage < 12.0 -> Color.Yellow
@@ -246,7 +247,7 @@ fun DashboardScreen(
                             
                             val geoPoint = GeoPoint(location.latitude, location.longitude)
                             mapView.controller.setCenter(geoPoint)
-                            mapView.controller.setZoom(16.0)
+//                            mapView.controller.setZoom(16.0)
                             mapView.invalidate()
                             Log.d("CenterButton", "Map centered to location")
                         }
@@ -257,7 +258,7 @@ fun DashboardScreen(
                             // Try to use default location (Toronto)
                             val defaultLocation = GeoPoint(43.6532, -79.3832)
                             mapView.controller.setCenter(defaultLocation)
-                            mapView.controller.setZoom(15.0)
+//                            mapView.controller.setZoom(15.0)
                             mapView.invalidate()
                             Log.d("CenterButton", "Map centered to default location")
                         }

@@ -1,21 +1,27 @@
 package com.example.myapplication2
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -26,6 +32,23 @@ class MainActivity : ComponentActivity() {
     
     private lateinit var windowInsetsController: WindowInsetsControllerCompat
     private var batteryReceiver: BroadcastReceiver? = null
+    
+    // Permission launcher
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        
+        Log.d("Permissions", "Fine location granted: $fineLocationGranted")
+        Log.d("Permissions", "Coarse location granted: $coarseLocationGranted")
+        
+        if (fineLocationGranted || coarseLocationGranted) {
+            Log.d("Permissions", "Location permissions granted!")
+        } else {
+            Log.e("Permissions", "Location permissions denied!")
+        }
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +65,9 @@ class MainActivity : ComponentActivity() {
         // Monitor USB power status
         setupPowerMonitoring()
         
+        // Request location permissions
+        requestLocationPermissions()
+        
         setContent {
             MyApplication2Theme {
                 Surface(
@@ -51,6 +77,30 @@ class MainActivity : ComponentActivity() {
                     DashboardScreen()
                 }
             }
+        }
+    }
+    
+    private fun requestLocationPermissions() {
+        val fineLocationGranted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        val coarseLocationGranted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        Log.d("Permissions", "Current permissions - Fine: $fineLocationGranted, Coarse: $coarseLocationGranted")
+        
+        if (!fineLocationGranted && !coarseLocationGranted) {
+            Log.d("Permissions", "Requesting location permissions...")
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        } else {
+            Log.d("Permissions", "Location permissions already granted")
         }
     }
     

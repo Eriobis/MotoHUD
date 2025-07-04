@@ -16,6 +16,7 @@ import android.app.Application
 import android.content.Context
 import android.location.Location
 import android.provider.Settings
+import android.util.Log
 import android.view.WindowManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -84,12 +85,21 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
+            Log.d("LocationService", "=== LOCATION RECEIVED ===")
+            Log.d("LocationService", "Location count: ${locationResult.locations.size}")
+            
             locationResult.lastLocation?.let { location ->
+                Log.d("LocationService", "Location: ${location.latitude}, ${location.longitude}")
+                Log.d("LocationService", "Accuracy: ${location.accuracy}m")
+                Log.d("LocationService", "Has speed: ${location.hasSpeed()}")
+                
                 val speedKmh = if (location.hasSpeed()) {
                     location.speed * 3.6f // m/s to km/h
                 } else {
                     calculateSpeedFromPreviousLocation(location)
                 }
+                
+                Log.d("LocationService", "Speed: ${speedKmh} km/h")
                 
                 _locationData.value = LocationData(
                     location = location,
@@ -102,7 +112,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 
                 // Fetch speed limit for current location
                 fetchSpeedLimit(location.latitude, location.longitude)
-            }
+            } ?: Log.e("LocationService", "Location is null!")
+        }
+        
+        override fun onLocationAvailability(availability: LocationAvailability) {
+            Log.d("LocationService", "Location availability: ${availability.isLocationAvailable}")
         }
     }
     
@@ -119,7 +133,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
     
     private fun startLocationUpdates() {
-        locationService.startLocationUpdates(locationRequest, locationCallback)
+        Log.d("LocationService", "=== STARTING LOCATION UPDATES ===")
+        try {
+            locationService.startLocationUpdates(locationRequest, locationCallback)
+            Log.d("LocationService", "Location service started successfully")
+        } catch (e: Exception) {
+            Log.e("LocationService", "Failed to start location service", e)
+        }
     }
     
     private fun startBleScanning() {
