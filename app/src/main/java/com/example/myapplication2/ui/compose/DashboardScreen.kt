@@ -179,8 +179,15 @@ fun DashboardScreen(
             // Connection status
             StatusCard(
                 title = "BLE",
-                value = if (connectionState.isConnected) "CONNECTED" else "DISCONNECTED",
-                color = if (connectionState.isConnected) Color.Green else Color.Red
+                value = connectionState.status,
+                color = when {
+                    connectionState.isConnected -> Color.Green
+                    connectionState.status == "SCANNING" -> Color.Yellow
+                    connectionState.status == "CONNECTING" -> Color.Yellow
+                    connectionState.status == "DISCOVERING" -> Color.Yellow
+                    connectionState.status == "FOUND DEVICE" -> Color.Cyan
+                    else -> Color.Red
+                }
             )
             
             // Engine temp
@@ -359,7 +366,11 @@ private fun SpeedCard(
                 color = Color.White.copy(alpha = 0.7f)
             )
             Text(
-                text = value,
+                text = if (value.toFloat() < 1f) {
+                            "0"
+                        } else {
+                            String.format(Locale.US, "%.1f", value)   // 1 decimal, rounded half‑up
+                        },
                 fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
                 color = color

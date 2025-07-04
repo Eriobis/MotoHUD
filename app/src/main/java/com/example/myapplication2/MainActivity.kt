@@ -33,20 +33,48 @@ class MainActivity : ComponentActivity() {
     private lateinit var windowInsetsController: WindowInsetsControllerCompat
     private var batteryReceiver: BroadcastReceiver? = null
     
-    // Permission launcher
-    private val locationPermissionLauncher = registerForActivityResult(
+    // Permission launcher for all permissions
+    private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        val bluetoothGranted = permissions[Manifest.permission.BLUETOOTH] ?: false
+        val bluetoothAdminGranted = permissions[Manifest.permission.BLUETOOTH_ADMIN] ?: false
+        val bluetoothConnectGranted = permissions[Manifest.permission.BLUETOOTH_CONNECT] ?: false
+        val bluetoothScanGranted = permissions[Manifest.permission.BLUETOOTH_SCAN] ?: false
         
+        Log.d("Permissions", "=== PERMISSION RESULTS ===")
         Log.d("Permissions", "Fine location granted: $fineLocationGranted")
         Log.d("Permissions", "Coarse location granted: $coarseLocationGranted")
+        Log.d("Permissions", "Bluetooth granted: $bluetoothGranted")
+        Log.d("Permissions", "Bluetooth Admin granted: $bluetoothAdminGranted")
+        Log.d("Permissions", "Bluetooth Connect granted: $bluetoothConnectGranted")
+        Log.d("Permissions", "Bluetooth Scan granted: $bluetoothScanGranted")
         
-        if (fineLocationGranted || coarseLocationGranted) {
-            Log.d("Permissions", "Location permissions granted!")
+        val locationOk = fineLocationGranted || coarseLocationGranted
+        val bleOk = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            bluetoothConnectGranted && bluetoothScanGranted
         } else {
-            Log.e("Permissions", "Location permissions denied!")
+            bluetoothGranted && bluetoothAdminGranted
+        }
+        
+        if (locationOk) {
+            Log.d("Permissions", "✅ Location permissions granted!")
+        } else {
+            Log.e("Permissions", "❌ Location permissions denied!")
+        }
+        
+        if (bleOk) {
+            Log.d("Permissions", "✅ BLE permissions granted!")
+        } else {
+            Log.e("Permissions", "❌ BLE permissions denied!")
+        }
+        
+        if (!locationOk || !bleOk) {
+            Log.w("Permissions", "⚠️ Some permissions denied. App functionality will be limited.")
+            Log.w("Permissions", "💡 Please go to Settings > Apps > ${packageManager.getApplicationLabel(applicationInfo)} > Permissions")
+            Log.w("Permissions", "💡 Enable Location and Nearby devices (Bluetooth) permissions")
         }
     }
     
@@ -65,8 +93,8 @@ class MainActivity : ComponentActivity() {
         // Monitor USB power status
         setupPowerMonitoring()
         
-        // Request location permissions
-        requestLocationPermissions()
+        // Request all permissions
+        requestAllPermissions()
         
         setContent {
             MyApplication2Theme {
@@ -80,28 +108,68 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private fun requestLocationPermissions() {
-        val fineLocationGranted = ContextCompat.checkSelfPermission(
-            this, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun requestAllPermissions() {
+        Log.d("Permissions", "=== CHECKING PERMISSIONS ===")
+        Log.d("Permissions", "Android SDK: ${android.os.Build.VERSION.SDK_INT}")
         
-        val coarseLocationGranted = ContextCompat.checkSelfPermission(
-            this, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        val permissionsToRequest = mutableListOf<String>()
         
-        Log.d("Permissions", "Current permissions - Fine: $fineLocationGranted, Coarse: $coarseLocationGranted")
+        // Check location permissions
+        val fineLocationStatus = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarseLocationStatus = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+        val fineLocationGranted = fineLocationStatus == PackageManager.PERMISSION_GRANTED
+        val coarseLocationGranted = coarseLocationStatus == PackageManager.PERMISSION_GRANTED
         
-        if (!fineLocationGranted && !coarseLocationGranted) {
-            Log.d("Permissions", "Requesting location permissions...")
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
+        Log.d("Permissions", "Fine location status: $fineLocationStatus (granted: $fineLocationGranted)")
+        Log.d("Permissions", "Coarse location status: $coarseLocationStatus (granted: $coarseLocationGranted)")
+        
+        if (!fineLocationGranted) permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (!coarseLocationGranted) permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        
+        // Check BLE permissions based on Android version
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            // Android 12+ - use new BLE permissions
+            val connectStatus = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+            val scanStatus = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+            val bluetoothConnectGranted = connectStatus == PackageManager.PERMISSION_GRANTED
+            val bluetoothScanGranted = scanStatus == PackageManager.PERMISSION_GRANTED
+            
+            Log.d("Permissions", "BLE Connect status: $connectStatus (granted: $bluetoothConnectGranted)")
+            Log.d("Permissions", "BLE Scan status: $scanStatus (granted: $bluetoothScanGranted)")
+            
+            if (!bluetoothConnectGranted) permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
+            if (!bluetoothScanGranted) permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
         } else {
-            Log.d("Permissions", "Location permissions already granted")
+            // Android 11 and below - use legacy BLE permissions
+            val bluetoothStatus = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH)
+            val bluetoothAdminStatus = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN)
+            val bluetoothGranted = bluetoothStatus == PackageManager.PERMISSION_GRANTED
+            val bluetoothAdminGranted = bluetoothAdminStatus == PackageManager.PERMISSION_GRANTED
+            
+            Log.d("Permissions", "Bluetooth status: $bluetoothStatus (granted: $bluetoothGranted)")
+            Log.d("Permissions", "Bluetooth Admin status: $bluetoothAdminStatus (granted: $bluetoothAdminGranted)")
+            
+            if (!bluetoothGranted) permissionsToRequest.add(Manifest.permission.BLUETOOTH)
+            if (!bluetoothAdminGranted) permissionsToRequest.add(Manifest.permission.BLUETOOTH_ADMIN)
         }
+        
+        Log.d("Permissions", "Permissions to request: ${permissionsToRequest.size}")
+        
+        if (permissionsToRequest.isNotEmpty()) {
+            Log.d("Permissions", "Requesting: ${permissionsToRequest.joinToString()}")
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
+        } else {
+            Log.d("Permissions", "✅ All permissions already granted - starting services")
+            // Force a check after a delay to see if services start properly
+            window.decorView.postDelayed({
+                checkServicesStatus()
+            }, 1000)
+        }
+    }
+    
+    private fun checkServicesStatus() {
+        Log.d("Permissions", "=== CHECKING SERVICES STATUS ===")
+        // This will help debug if services are working even when permissions look good
     }
     
     private fun setupImmersiveMode() {

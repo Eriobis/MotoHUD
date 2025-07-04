@@ -11,5 +11,6 @@ data class Esp32Data(
 data class BleConnectionState(
     val isConnected: Boolean = false,
     val deviceName: String? = null,
-    val deviceAddress: String? = null
+    val deviceAddress: String? = null,
+    val status: String = "IDLE"
 )

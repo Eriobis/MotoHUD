@@ -49,11 +49,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val locationService = LocationService(context)
     
     // Debug mode for testing without ESP32
-    private val isDebugMode = true  // Set to false when ESP32 is available
+    private val isDebugMode = false  // Set to false when ESP32 is available
     
     // Mock ESP32 data for debugging
     private val _mockEsp32Data = MutableStateFlow(Esp32Data())
-    private val _mockConnectionState = MutableStateFlow(BleConnectionState(isConnected = isDebugMode, deviceName = "ESP32-Mock"))
+    private val _mockConnectionState = MutableStateFlow(
+        BleConnectionState(
+            isConnected = isDebugMode,
+            deviceName = "ESP32-Mock",
+            status = if (isDebugMode) "CONNECTED" else "IDLE"
+        )
+    )
     
     // BLE data flows - use mock data in debug mode
     val esp32Data: StateFlow<Esp32Data> = if (isDebugMode) _mockEsp32Data.asStateFlow() else bleService.esp32Data
@@ -93,7 +99,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 Log.d("LocationService", "Accuracy: ${location.accuracy}m")
                 Log.d("LocationService", "Has speed: ${location.hasSpeed()}")
                 
-                val speedKmh = if (location.hasSpeed()) {
+                val speedKmh = if (location.hasSpeed() && (location.speed * 3.6f) > 4) {
                     location.speed * 3.6f // m/s to km/h
                 } else {
                     calculateSpeedFromPreviousLocation(location)
