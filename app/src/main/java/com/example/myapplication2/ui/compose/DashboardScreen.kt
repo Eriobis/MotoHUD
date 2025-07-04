@@ -149,7 +149,7 @@ fun DashboardScreen(
             
             // RPM gauge
             Card(
-                modifier = Modifier.size(140.dp),
+                modifier = Modifier.width(200.dp).height(120.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.7f)),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -170,7 +170,7 @@ fun DashboardScreen(
         // Bottom row - Status indicators and controls
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(fraction = 0.9f)
                 .align(Alignment.BottomStart)
                 .padding(10.dp),
             horizontalArrangement = Arrangement.SpaceEvenly

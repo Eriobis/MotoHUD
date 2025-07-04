@@ -36,7 +36,7 @@ fun Gauge(
     )
     
     Box(
-        modifier = modifier.size(120.dp),
+        modifier = modifier.size(140.dp),
         contentAlignment = Alignment.Center
     ) {
         Canvas(
@@ -51,18 +51,20 @@ fun Gauge(
         }
         
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.offset(y = 20.dp),
+
         ) {
             Text(
                 text = "${animatedValue.toInt()}",
-                fontSize = 24.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = Color.White
             )
             Text(
                 text = unit,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.8f)
             )
         }
     }
@@ -74,57 +76,168 @@ private fun DrawScope.drawGauge(
     minValue: Float,
     redlineValue: Float?
 ) {
-    val strokeWidth = 16.dp.toPx()
-    val center = size.center
-    val radius = (size.minDimension / 2) - strokeWidth
+    val strokeWidth = 12.dp.toPx()
+    val center = Offset(size.width / 2, size.height * 0.75f) // Lower center for quarter circle
+    val radius = size.width * 0.55f
+    
+    // Quarter circle gauge (180 degrees from left to right)
+    val startAngle = 180f
+    val sweepAngle = 145f
+
+    // Calculate zone angles
+    val normalZone = 0.6f // 60% is normal (green)
+    val warningZone = 0.8f // 80% is warning (yellow)
+    val redlineZone = redlineValue?.let { it / maxValue } ?: 1.0f
+    
+    val normalAngle = normalZone * sweepAngle
+    val warningAngle = warningZone * sweepAngle
+    val redlineAngle = redlineZone * sweepAngle
     
     // Draw background arc
     drawArc(
         color = Color.Gray.copy(alpha = 0.5f),
-        startAngle = 180f,
-        sweepAngle = 150f,
+        startAngle = startAngle,
+        sweepAngle = sweepAngle,
+        useCenter = false,
+        style = Stroke(width = strokeWidth + 4.dp.toPx(), cap = StrokeCap.Round),
+        size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+        topLeft = Offset(center.x - radius, center.y - radius)
+    )
+    
+    // Green zone (normal operation)
+    drawArc(
+        color = Color(0xFF00AA00),
+        startAngle = startAngle,
+        sweepAngle = normalAngle,
         useCenter = false,
         style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
         size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
         topLeft = Offset(center.x - radius, center.y - radius)
     )
     
-    // Draw value arc
-    val valueAngle = ((value - minValue) / (maxValue - minValue)) * 270f
-    val valueColor = when {
-        redlineValue != null && value >= redlineValue -> Color.Red
-        value > maxValue * 0.8f -> Color.Yellow
-        else -> Color.Green
+    // Yellow zone (warning)
+    drawArc(
+        color = Color(0xFFFFAA00),
+        startAngle = startAngle + normalAngle,
+        sweepAngle = warningAngle - normalAngle,
+        useCenter = false,
+        style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+        size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+        topLeft = Offset(center.x - radius, center.y - radius)
+    )
+    
+    // Red zone (redline)
+    drawArc(
+        color = Color(0xFFFF3333),
+        startAngle = startAngle + warningAngle,
+        sweepAngle = sweepAngle - warningAngle,
+        useCenter = false,
+        style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+        size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+        topLeft = Offset(center.x - radius, center.y - radius)
+    )
+
+    // Draw tick marks first
+    drawTickMarks(center, radius, maxValue, minValue)
+
+    // Draw needle
+    val valueAngle = ((value - minValue) / (maxValue - minValue)) * sweepAngle
+    val needleAngle = startAngle + valueAngle
+    val needleLength = radius
+
+    val needleEnd = Offset(
+        center.x + needleLength * cos(Math.toRadians(needleAngle.toDouble())).toFloat(),
+        center.y + needleLength * sin(Math.toRadians(needleAngle.toDouble())).toFloat()
+    )
+
+    // Needle shadow fo
+    val needleStart = Offset(
+        center.x + (radius * 0.75f) * cos(Math.toRadians(needleAngle.toDouble())).toFloat(),
+        center.y + (radius * 0.75f) * sin(Math.toRadians(needleAngle.toDouble())).toFloat()
+    )
+    
+    // Needle shadow for depth
+    drawLine(
+        color = Color.Black.copy(alpha = 0.4f),
+        start = center,
+        end = Offset(needleEnd.x + 2, needleEnd.y + 2),
+        strokeWidth = 6.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+    
+    // Main needle
+    drawLine(
+        color = Color.White,
+        start = needleStart,
+        end = needleEnd,
+        strokeWidth = 4.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+    drawCircle(
+        color = Color.White,
+        radius = 6.dp.toPx(),
+        center = center
+    )
+}
+
+private fun DrawScope.drawTickMarks(
+    center: Offset,
+    radius: Float,
+    maxValue: Float,
+    minValue: Float
+) {
+    val majorTickCount = 6 // Major ticks at 0, 20%, 40%, 60%, 80%, 100%
+    val minorTickCount = 18 // Total minor ticks
+    val sweepAngle = 180f
+    val startAngle = 180f
+    
+    // Draw minor ticks
+    for (i in 0..minorTickCount) {
+        val angle = startAngle + (i * sweepAngle / minorTickCount)
+        val tickRadius = radius * 0.88f
+        val tickEndRadius = radius * 0.95f
+        
+        val startPos = Offset(
+            center.x + tickRadius * cos(Math.toRadians(angle.toDouble())).toFloat(),
+            center.y + tickRadius * sin(Math.toRadians(angle.toDouble())).toFloat()
+        )
+        
+        val endPos = Offset(
+            center.x + tickEndRadius * cos(Math.toRadians(angle.toDouble())).toFloat(),
+            center.y + tickEndRadius * sin(Math.toRadians(angle.toDouble())).toFloat()
+        )
+        
+        drawLine(
+            color = Color.White.copy(alpha = 0.6f),
+            start = startPos,
+            end = endPos,
+            strokeWidth = 1.dp.toPx(),
+            cap = StrokeCap.Round
+        )
     }
     
-    drawArc(
-        color = valueColor,
-        startAngle = 135f,
-        sweepAngle = valueAngle,
-        useCenter = false,
-        style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-        size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
-        topLeft = Offset(center.x - radius, center.y - radius)
-    )
-    
-//    // Draw needle
-//    val needleAngle = 135f + valueAngle
-//    val needleLength = radius * 0.8f
-//
-//    rotate(degrees = needleAngle, pivot = center) {
-//        drawLine(
-//            color = Color.White,
-//            start = center,
-//            end = Offset(center.x, center.y - needleLength),
-//            strokeWidth = 3.dp.toPx(),
-//            cap = StrokeCap.Round
-//        )
-//    }
-//
-//    // Draw center circle
-//    drawCircle(
-//        color = Color.White,
-//        radius = 8.dp.toPx(),
-//        center = center
-//    )
+    // Draw major ticks
+    for (i in 0..majorTickCount) {
+        val angle = startAngle + (i * sweepAngle / majorTickCount)
+        val tickRadius = radius * 0.82f
+        val tickEndRadius = radius
+        
+        val startPos = Offset(
+            center.x + tickRadius * cos(Math.toRadians(angle.toDouble())).toFloat(),
+            center.y + tickRadius * sin(Math.toRadians(angle.toDouble())).toFloat()
+        )
+        
+        val endPos = Offset(
+            center.x + tickEndRadius * cos(Math.toRadians(angle.toDouble())).toFloat(),
+            center.y + tickEndRadius * sin(Math.toRadians(angle.toDouble())).toFloat()
+        )
+        
+        drawLine(
+            color = Color.White,
+            start = startPos,
+            end = endPos,
+            strokeWidth = 3.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+    }
 }
